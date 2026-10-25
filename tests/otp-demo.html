@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OTP Demo App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 420px;
+            margin: 40px auto;
+        }
+
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+        }
+
+        h2 {
+            margin-top: 0;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 6px 0 14px;
+            box-sizing: border-box;
+        }
+
+        button {
+            padding: 10px 16px;
+            margin-right: 8px;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+        }
+
+        .error {
+            color: #c0392b;
+            font-weight: bold;
+            min-height: 20px;
+        }
+
+        .info {
+            color: #27ae60;
+            font-weight: bold;
+            min-height: 20px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .muted {
+            color: #888;
+            font-size: 13px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ===================== LOGIN SCREEN ===================== -->
+    <div id="login-screen" class="card">
+        <h2>Login</h2>
+        <label>Email</label>
+        <input id="username" type="text" placeholder="testuser@example.com" />
+        <label>Password</label>
+        <input id="password" type="password" placeholder="Password@123" />
+        <p id="login-error" class="error"></p>
+        <button id="send-otp">Send OTP</button>
+        <p class="muted">Hint: testuser@example.com / Password@123</p>
+    </div>
+
+    <!-- ===================== OTP SCREEN ===================== -->
+    <div id="otp-screen" class="card hidden">
+        <h2>Enter OTP</h2>
+        <p class="muted">A fresh 6-digit code was generated and "sent".</p>
+        <label>OTP</label>
+        <input id="otp" type="password" maxlength="6" placeholder="______" />
+        <button id="toggle-otp-visibility" type="button">Show</button>
+        <br /><br />
+        <p id="otp-error" class="error"></p>
+        <p id="otp-sent-msg" class="info"></p>
+        <button id="verify-otp">Verify</button>
+        <button id="resend-otp" disabled>Resend OTP</button>
+        <span id="resend-timer" class="muted"></span>
+    </div>
+
+    <!-- ===================== DASHBOARD SCREEN ===================== -->
+    <div id="dashboard-screen" class="card hidden">
+        <h2 id="welcome-msg"></h2>
+        <p>You are logged in.</p>
+        <button id="logout">Logout</button>
+    </div>
+
+    <script>
+        const VALID_USER = 'testuser@example.com';
+        const VALID_PASS = 'Password@123';
+        const MAX_ATTEMPTS = 3;
+        const RESEND_SECONDS = 5;
+
+        let wrongAttempts = 0;
+        let locked = false;
+        let currentOtp = null; // regenerated on each send/resend
+
+        const $ = (id) => document.getElementById(id);
+        const show = (id) => $(id).classList.remove('hidden');
+        const hide = (id) => $(id).classList.add('hidden');
+
+        // Generate a UNIQUE 6-digit OTP. In real life the SERVER does this and
+        // sends it via SMS/Email. Here we expose it via a TEST HOOK (window.__getOtp)
+        // so automation can read it - just like a test-only backend API.
+        function generateOtp() {
+            currentOtp = String(Math.floor(100000 + Math.random() * 900000));
+            window.__getOtp = () => currentOtp;
+            return currentOtp;
+        }
+
+        function startResendTimer() {
+            let remaining = RESEND_SECONDS;
+            $('resend-otp').disabled = true;
+            $('resend-timer').textContent = `Resend available in ${remaining}s`;
+            const interval = setInterval(() => {
+                remaining--;
+                if (remaining <= 0) {
+                    clearInterval(interval);
+                    $('resend-otp').disabled = false;
+                    $('resend-timer').textContent = '';
+                } else {
+                    $('resend-timer').textContent = `Resend available in ${remaining}s`;
+                }
+            }, 1000);
+        }
+
+        $('send-otp').addEventListener('click', () => {
+            $('login-error').textContent = '';
+            const user = $('username').value.trim();
+            const pass = $('password').value;
+            if (user === VALID_USER && pass === VALID_PASS) {
+                generateOtp(); // fresh, unique OTP for this login
+                hide('login-screen');
+                show('otp-screen');
+                startResendTimer();
+            } else {
+                $('login-error').textContent = 'Invalid username or password';
+            }
+        });
+
+        $('otp').addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+        });
+
+        $('toggle-otp-visibility').addEventListener('click', () => {
+            const otp = $('otp');
+            if (otp.type === 'password') {
+                otp.type = 'text';
+                $('toggle-otp-visibility').textContent = 'Hide';
+            } else {
+                otp.type = 'password';
+                $('toggle-otp-visibility').textContent = 'Show';
+            }
+        });
+
+        $('verify-otp').addEventListener('click', () => {
+            $('otp-error').textContent = '';
+            $('otp-sent-msg').textContent = '';
+            if (locked) return;
+            const code = $('otp').value;
+            if (code.length === 0) {
+                $('otp-error').textContent = 'OTP is required';
+                return;
+            }
+            if (code.length < 6) {
+                $('otp-error').textContent = 'Please enter 6 digit OTP';
+                return;
+            }
+            if (code === currentOtp) {
+                currentOtp = null; // single-use: consume after success
+                hide('otp-screen');
+                show('dashboard-screen');
+                $('welcome-msg').textContent = 'Welcome, testuser!';
+                location.hash = 'dashboard';
+            } else {
+                wrongAttempts++;
+                if (wrongAttempts >= MAX_ATTEMPTS) {
+                    locked = true;
+                    $('otp-error').textContent = 'Account locked - too many attempts';
+                    $('verify-otp').disabled = true;
+                } else {
+                    $('otp-error').textContent = 'Invalid OTP';
+                }
+            }
+        });
+
+        $('resend-otp').addEventListener('click', () => {
+            generateOtp(); // resend creates a NEW unique OTP
+            $('otp-sent-msg').textContent = 'OTP sent successfully';
+            startResendTimer();
+        });
+
+        $('logout').addEventListener('click', () => {
+            hide('dashboard-screen');
+            show('login-screen');
+            $('username').value = '';
+            $('password').value = '';
+            $('otp').value = '';
+            wrongAttempts = 0;
+            locked = false;
+            $('verify-otp').disabled = false;
+            location.hash = '';
+        });
+    </script>
+</body>
+
+</html>

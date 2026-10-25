@@ -1,0 +1,218 @@
+{
+    "info": {
+        "name": "OTP Demo API",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:3000",
+            "type": "string"
+        },
+        {
+            "key": "email",
+            "value": "testuser@example.com",
+            "type": "string"
+        },
+        {
+            "key": "password",
+            "value": "Password@123",
+            "type": "string"
+        },
+        {
+            "key": "otp",
+            "value": "",
+            "type": "string"
+        }
+    ],
+    "item": [
+        {
+            "name": "1. Login (generate + send OTP)",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/login",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "login"
+                    ]
+                }
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                            "const body = pm.response.json();",
+                            "pm.test('ok is true', () => pm.expect(body.ok).to.be.true);"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "2. Get Latest OTP (Test-only)",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{baseUrl}}/test-api/latest-otp?email={{email}}",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "test-api",
+                        "latest-otp"
+                    ],
+                    "query": [
+                        {
+                            "key": "email",
+                            "value": "{{email}}"
+                        }
+                    ]
+                }
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "const body = pm.response.json();",
+                            "pm.test('OTP is 6 digits', () => pm.expect(body.otp).to.match(/^\\d{6}$/));",
+                            "pm.collectionVariables.set('otp', body.otp);"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "3. Verify OTP (Valid)",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"email\": \"{{email}}\",\n  \"otp\": \"{{otp}}\"\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/verify-otp",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "verify-otp"
+                    ]
+                }
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                            "const body = pm.response.json();",
+                            "pm.test('Welcome message', () => pm.expect(body.message).to.include('Welcome'));"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "4. Verify OTP (Wrong) - negative",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"email\": \"{{email}}\",\n  \"otp\": \"000000\"\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/verify-otp",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "verify-otp"
+                    ]
+                }
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('Status is 401', () => pm.response.to.have.status(401));",
+                            "const body = pm.response.json();",
+                            "pm.test('Invalid OTP message', () => pm.expect(body.message).to.eql('Invalid OTP'));"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "5. Login (Invalid credentials) - negative",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"email\": \"wrong@example.com\",\n  \"password\": \"badpass\"\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/login",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "login"
+                    ]
+                }
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test('Status is 401', () => pm.response.to.have.status(401));",
+                            "const body = pm.response.json();",
+                            "pm.test('Invalid credentials message', () => pm.expect(body.message).to.eql('Invalid username or password'));"
+                        ]
+                    }
+                }
+            ]
+        }
+    ]
+}

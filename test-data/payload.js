@@ -1,0 +1,33 @@
+export const coursePayload = {
+    dashboard: {
+        purchaseAmount: 1262,
+        website: "rahulshettyacademy.com"
+    },
+    courses: [
+        {
+            title: "Selenium Python",
+            price: 50,
+            copies: 6
+        },
+        {
+            title: "Cypress",
+            price: 40,
+            copies: 4
+        },
+        {
+            title: "RPA",
+            price: 45,
+            copies: 10
+        },
+        {
+            title: "Appium",
+            price: 36,
+            copies: 7
+        },
+        {
+            title: "Playwright",
+            price: 50,
+            copies: 2
+        }
+    ]
+};
